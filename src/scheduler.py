@@ -113,8 +113,8 @@ def daily_job() -> None:
 
 def weekly_job() -> None:
     """
-    주간 리포트 파이프라인
-    1. DB에서 최근 7일 기사 조회
+    주간 리포트 파이프라인 (스케줄러 자동 실행용)
+    1. DB에서 최근 7일 기사 조회 (daily_job이 누적한 데이터 사용)
     2. AI 주간 요약
     3. HTML 이메일 생성 및 발송
     """
@@ -133,6 +133,55 @@ def weekly_job() -> None:
 
     except Exception as e:
         logger.exception("주간 리포트 생성 중 예외 발생: %s", e)
+
+
+def weekly_collect_job() -> None:
+    """
+    주간 리포트 파이프라인 (직접 실행용 --weekly)
+    1. 최근 7일치 기사 직접 수집 (RSS + 구글·네이버 도메인 필터)
+    2. 중복 제거 후 DB 저장
+    3. DB에서 최근 7일 기사 전체 조회
+    4. AI 주간 요약
+    5. HTML 이메일 생성 및 발송
+    """
+    logger.info("=== 주간 리포트 수집+생성 시작 (직접 실행) ===")
+
+    try:
+        # 1. 최근 7일치 직접 수집
+        rss_articles = gaming_media.collect(hours=168)
+
+        search_raw = google_news.collect(hours=168) + naver_news.collect(hours=168)
+        search_articles = _filter_by_trusted_domain(search_raw)
+        logger.info(
+            "구글·네이버 수집: 전체 %d건 → 도메인 필터 후 %d건",
+            len(search_raw), len(search_articles),
+        )
+
+        raw_articles = rss_articles + search_articles
+        logger.info("수집 완료: 전체 %d건", len(raw_articles))
+
+        # 2. 중복 제거 후 DB 저장
+        new_articles = deduplicator.deduplicate(raw_articles)
+        logger.info("신규 기사: %d건", len(new_articles))
+
+        for article in new_articles:
+            db.save_article(article)
+
+        # 3. DB에서 최근 7일 기사 전체 조회
+        articles = db.get_weekly_articles()
+        logger.info("주간 기사 조회: %d건", len(articles))
+
+        # 4. AI 주간 요약
+        ai_result = _summarizer.summarize_weekly(articles)
+
+        # 5. HTML 이메일 생성 및 발송
+        subject, html = weekly_report.generate(articles, ai_result)
+        email_sender.send(subject, html)
+
+        logger.info("=== 주간 리포트 수집+생성 완료 ===")
+
+    except Exception as e:
+        logger.exception("주간 리포트 수집+생성 중 예외 발생: %s", e)
 
 
 def cleanup_job() -> None:

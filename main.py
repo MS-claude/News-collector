@@ -53,9 +53,9 @@ def main() -> None:
         return
 
     if args.weekly:
-        logger.info("즉시 실행 모드: 주간 리포트")
-        from src.scheduler import weekly_job
-        weekly_job()
+        logger.info("즉시 실행 모드: 주간 리포트 (7일치 직접 수집)")
+        from src.scheduler import weekly_collect_job
+        weekly_collect_job()
         return
 
     # 기본: 스케줄러 상시 실행

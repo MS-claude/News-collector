@@ -10,7 +10,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from src import database as db
-from src.collectors import google_news, naver_news, gaming_media
+from src.collectors import gaming_media
 from src.notifiers import email_sender
 from src.processors import deduplicator
 from src.processors.summarizer import ArticleSummarizer
@@ -29,7 +29,7 @@ _summarizer = ArticleSummarizer()
 def daily_job() -> None:
     """
     일간 뉴스 수집 파이프라인
-    1. Google News RSS + Naver News API 수집 (최근 24시간)
+    1. 게임 전문 매체 RSS 수집 (최근 24시간)
     2. 중복 제거
     3. DB 저장 + AI 요약
     4. HTML 이메일 생성 및 발송
@@ -38,11 +38,7 @@ def daily_job() -> None:
 
     try:
         # 1. 수집
-        raw_articles = (
-            google_news.collect(hours=24)
-            + naver_news.collect(hours=24)
-            + gaming_media.collect(hours=24)
-        )
+        raw_articles = gaming_media.collect(hours=24)
         logger.info("수집 완료: 전체 %d건", len(raw_articles))
 
         # 2. 중복 제거

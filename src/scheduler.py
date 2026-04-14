@@ -3,14 +3,29 @@ APScheduler 기반 스케줄러
 - 매일 09:00 KST: 일간 뉴스 수집 → AI 요약 → 이메일 발송
 - 매주 금요일 09:00 KST: 주간 리포트 생성 → 이메일 발송
 - 매일 03:00 KST: 30일 이상 된 기사 DB 정리
+
+수집 전략:
+- 게임 전문 매체 RSS: 직접 수집 (인벤·게임동아·게임조선·지디넷)
+- 구글/네이버 뉴스: 광범위 검색 후 신뢰 게임 매체 도메인 기사만 통과
 """
 import logging
+from urllib.parse import urlparse
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from src import database as db
-from src.collectors import gaming_media
+from src.collectors import google_news, naver_news, gaming_media
+
+# 구글·네이버 수집 결과 도메인 허용 목록
+TRUSTED_DOMAINS = [
+    "game.donga.com",
+    "gamefocus.co.kr",
+    "gamemeca.com",
+    "zdnet.co.kr",
+    "gamechosun.co.kr",
+    "inven.co.kr",
+]
 from src.notifiers import email_sender
 from src.processors import deduplicator
 from src.processors.summarizer import ArticleSummarizer
@@ -26,19 +41,40 @@ _summarizer = ArticleSummarizer()
 # 잡 함수
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _filter_by_trusted_domain(articles: list) -> list:
+    """구글·네이버 수집 기사 중 신뢰 게임 매체 도메인 기사만 반환."""
+    result = []
+    for article in articles:
+        netloc = urlparse(article.get("url", "")).netloc.lower()
+        if any(domain in netloc for domain in TRUSTED_DOMAINS):
+            result.append(article)
+    return result
+
+
 def daily_job() -> None:
     """
     일간 뉴스 수집 파이프라인
-    1. 게임 전문 매체 RSS 수집 (최근 24시간)
-    2. 중복 제거
-    3. DB 저장 + AI 요약
-    4. HTML 이메일 생성 및 발송
+    1. 게임 전문 매체 RSS 직접 수집 (최근 24시간)
+    2. 구글·네이버 검색 수집 후 신뢰 도메인 필터링
+    3. 중복 제거
+    4. DB 저장 + AI 요약
+    5. HTML 이메일 생성 및 발송
     """
     logger.info("=== 일간 뉴스 수집 시작 ===")
 
     try:
-        # 1. 수집
-        raw_articles = gaming_media.collect(hours=24)
+        # 1. 게임 전문 매체 RSS 직접 수집
+        rss_articles = gaming_media.collect(hours=24)
+
+        # 2. 구글·네이버 수집 후 신뢰 도메인 필터링
+        search_raw = google_news.collect(hours=24) + naver_news.collect(hours=24)
+        search_articles = _filter_by_trusted_domain(search_raw)
+        logger.info(
+            "구글·네이버 수집: 전체 %d건 → 도메인 필터 후 %d건",
+            len(search_raw), len(search_articles),
+        )
+
+        raw_articles = rss_articles + search_articles
         logger.info("수집 완료: 전체 %d건", len(raw_articles))
 
         # 2. 중복 제거

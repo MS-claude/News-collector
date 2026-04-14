@@ -36,11 +36,10 @@ GAMING_KEYWORDS = [
 # gaming_only=True  → HR 키워드만 확인 (게임 전문 매체)
 # gaming_only=False → HR 키워드 + 게임 키워드 모두 확인 (종합 IT 매체)
 FEEDS = [
-    {"name": "인벤",       "url": "http://feeds.feedburner.com/inven",                        "gaming_only": True},
-    {"name": "게임메카",    "url": "https://www.gamemeca.com/news.php",                        "gaming_only": True},
-    {"name": "게임동아",    "url": "https://game.donga.com/feeds/rss/",                        "gaming_only": True},
-    {"name": "게임조선",    "url": "https://www.gamechosun.co.kr/rss/rss.xml",                 "gaming_only": True},
-    {"name": "지디넷코리아", "url": "https://zdnet.co.kr/rss.php",                              "gaming_only": False},
+    {"name": "인벤",       "url": "http://feeds.feedburner.com/inven",         "gaming_only": True},
+    {"name": "게임동아",    "url": "https://game.donga.com/feeds/rss/",         "gaming_only": True},
+    {"name": "게임조선",    "url": "https://www.gamechosun.co.kr/rss/",         "gaming_only": True},
+    {"name": "지디넷코리아", "url": "https://zdnet.co.kr/feed/",                "gaming_only": False},
 ]
 
 REQUEST_DELAY = 1.5  # 초 (매체별 요청 간격)

@@ -1,22 +1,22 @@
 """
-Anthropic Claude AI 뉴스 요약 모듈
+Google Gemini AI 뉴스 요약 모듈
 - 수집된 기사를 단일 API 호출로 일괄 처리
 - 카테고리 분류: 채용 / 임원선임 / 퇴사이직 / 기타
 - 기사별 1~2문장 한국어 요약
 - 전체 동향 종합 요약 및 주요 트렌드 추출
-- API 키: ANTHROPIC_API_KEY 환경 변수 (https://console.anthropic.com 에서 발급)
+- API 키: GOOGLE_API_KEY 환경 변수 (https://aistudio.google.com 에서 무료 발급)
 """
 import json
 import logging
 import os
 from typing import Optional
 
-import anthropic
+import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-opus-4-6"
-MAX_TOKENS = 4096
+MODEL = "gemini-2.5-flash"
+MAX_OUTPUT_TOKENS = 4096
 
 _SYSTEM_PROMPT = """당신은 게임업계 채용 전문가를 위한 HR 뉴스 분석 AI입니다.
 게임업계의 채용·임원 선임·퇴사·이직 관련 뉴스를 분석하고 한국어로 요약합니다.
@@ -31,19 +31,26 @@ _SYSTEM_PROMPT = """당신은 게임업계 채용 전문가를 위한 HR 뉴스 
 - 모든 응답은 한국어로 작성
 - 기사 요약은 핵심 사실만 1~2문장으로 간결하게
 - 회사명·인물명은 정확하게 추출
-- 확인되지 않은 정보는 추측하지 않음
-- 반드시 유효한 JSON 형식으로만 응답"""
+- 확인되지 않은 정보는 추측하지 않음"""
 
 
 class ArticleSummarizer:
     def __init__(self, api_key: Optional[str] = None):
-        key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        key = api_key or os.getenv("GOOGLE_API_KEY")
         if not key:
             raise ValueError(
-                "ANTHROPIC_API_KEY 환경 변수가 설정되지 않았습니다. "
-                "https://console.anthropic.com 에서 API 키를 발급받으세요."
+                "GOOGLE_API_KEY 환경 변수가 설정되지 않았습니다. "
+                "https://aistudio.google.com 에서 API 키를 발급받으세요."
             )
-        self._client = anthropic.Anthropic(api_key=key)
+        genai.configure(api_key=key)
+        self._model = genai.GenerativeModel(
+            model_name=MODEL,
+            system_instruction=_SYSTEM_PROMPT,
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                max_output_tokens=MAX_OUTPUT_TOKENS,
+            ),
+        )
 
     def summarize_daily(self, articles: list) -> dict:
         """
@@ -111,7 +118,7 @@ class ArticleSummarizer:
 1. 각 기사를 카테고리로 분류하고 핵심 내용을 요약해주세요.
 2. {analysis_instruction}
 
-## 응답 형식 (JSON만 출력, 다른 텍스트 없이)
+## 응답 형식 (JSON)
 {{
   "articles": [
     {{
@@ -127,29 +134,15 @@ class ArticleSummarizer:
 }}"""
 
         try:
-            response = self._client.messages.create(
-                model=MODEL,
-                max_tokens=MAX_TOKENS,
-                system=[
-                    {
-                        "type": "text",
-                        "text": _SYSTEM_PROMPT,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
-                messages=[{"role": "user", "content": user_prompt}],
-            )
-            text = next(
-                (b.text for b in response.content if b.type == "text"), ""
-            )
-            result = json.loads(text)
+            response = self._model.generate_content(user_prompt)
+            result = json.loads(response.text)
             self._log_usage(response)
             return result
 
         except json.JSONDecodeError as e:
             logger.error("AI 응답 JSON 파싱 실패: %s", e)
         except Exception as e:
-            logger.error("Claude API 호출 실패: %s", e)
+            logger.error("Gemini API 호출 실패: %s", e)
 
         return {
             "articles": [],
@@ -173,13 +166,11 @@ class ArticleSummarizer:
 
     def _log_usage(self, response) -> None:
         try:
-            usage = response.usage
+            usage = response.usage_metadata
             logger.debug(
-                "Claude API 사용량 - 입력: %d 토큰 (캐시 읽기: %d, 캐시 생성: %d), 출력: %d 토큰",
-                usage.input_tokens,
-                getattr(usage, "cache_read_input_tokens", 0),
-                getattr(usage, "cache_creation_input_tokens", 0),
-                usage.output_tokens,
+                "Gemini API 사용량 - 입력: %d 토큰, 출력: %d 토큰",
+                usage.prompt_token_count,
+                usage.candidates_token_count,
             )
         except Exception:
             pass

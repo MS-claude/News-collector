@@ -11,7 +11,8 @@ import logging
 import os
 from typing import Optional
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +44,7 @@ class ArticleSummarizer:
                 "GOOGLE_API_KEY 환경 변수가 설정되지 않았습니다. "
                 "https://aistudio.google.com 에서 API 키를 발급받으세요."
             )
-        genai.configure(api_key=key)
-        self._model = genai.GenerativeModel(
-            model_name=MODEL,
-            system_instruction=_SYSTEM_PROMPT,
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-            ),
-        )
+        self._client = genai.Client(api_key=key)
 
     def summarize_daily(self, articles: list) -> dict:
         """
@@ -139,9 +133,11 @@ class ArticleSummarizer:
         )
 
         try:
-            response = self._model.generate_content(
-                user_prompt,
-                generation_config=genai.GenerationConfig(
+            response = self._client.models.generate_content(
+                model=MODEL,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=_SYSTEM_PROMPT,
                     response_mime_type="application/json",
                     max_output_tokens=max_tokens,
                 ),

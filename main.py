@@ -5,6 +5,7 @@
     python main.py              # 스케줄러 상시 실행 (운영 모드)
     python main.py --now        # 즉시 일간 뉴스 수집 후 종료 (테스트용)
     python main.py --weekly     # 즉시 주간 리포트 생성 후 종료 (테스트용)
+    python main.py --api        # HTTP API 서버 실행 (n8n 등 외부 스케줄러 연동용)
 """
 import argparse
 import logging
@@ -41,6 +42,11 @@ def main() -> None:
         action="store_true",
         help="즉시 주간 리포트 생성 후 종료",
     )
+    parser.add_argument(
+        "--api",
+        action="store_true",
+        help="HTTP API 서버 실행 (n8n 등 외부 스케줄러 연동용)",
+    )
     args = parser.parse_args()
 
     from src import database as db
@@ -56,6 +62,14 @@ def main() -> None:
         logger.info("즉시 실행 모드: 주간 리포트 (7일치 직접 수집)")
         from src.scheduler import weekly_collect_job
         weekly_collect_job()
+        return
+
+    if args.api:
+        import uvicorn
+        from src.api import app
+        port = int(os.getenv("API_PORT", "8000"))
+        logger.info("API 서버 시작 (port=%d)", port)
+        uvicorn.run(app, host="0.0.0.0", port=port)
         return
 
     # 기본: 스케줄러 상시 실행

@@ -10,7 +10,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from src import database as db
-from src.collectors import google_news, naver_news
+from src.collectors import google_news, naver_news, gaming_media
 from src.notifiers import email_sender
 from src.processors import deduplicator
 from src.processors.summarizer import ArticleSummarizer
@@ -38,7 +38,11 @@ def daily_job() -> None:
 
     try:
         # 1. 수집
-        raw_articles = google_news.collect(hours=24) + naver_news.collect(hours=24)
+        raw_articles = (
+            google_news.collect(hours=24)
+            + naver_news.collect(hours=24)
+            + gaming_media.collect(hours=24)
+        )
         logger.info("수집 완료: 전체 %d건", len(raw_articles))
 
         # 2. 중복 제거

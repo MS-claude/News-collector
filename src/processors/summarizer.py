@@ -16,7 +16,8 @@ import google.generativeai as genai
 logger = logging.getLogger(__name__)
 
 MODEL = "gemini-2.5-flash"
-MAX_OUTPUT_TOKENS = 4096
+MAX_OUTPUT_TOKENS_DAILY = 4096
+MAX_OUTPUT_TOKENS_WEEKLY = 16384
 
 _SYSTEM_PROMPT = """당신은 게임업계 채용 전문가를 위한 HR 뉴스 분석 AI입니다.
 게임업계의 채용·임원 선임·퇴사·이직 관련 뉴스를 분석하고 한국어로 요약합니다.
@@ -48,7 +49,6 @@ class ArticleSummarizer:
             system_instruction=_SYSTEM_PROMPT,
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
-                max_output_tokens=MAX_OUTPUT_TOKENS,
             ),
         )
 
@@ -133,8 +133,19 @@ class ArticleSummarizer:
   "key_trends": ["트렌드1", "트렌드2"]{extra_fields}
 }}"""
 
+        max_tokens = (
+            MAX_OUTPUT_TOKENS_WEEKLY if report_type == "weekly"
+            else MAX_OUTPUT_TOKENS_DAILY
+        )
+
         try:
-            response = self._model.generate_content(user_prompt)
+            response = self._model.generate_content(
+                user_prompt,
+                generation_config=genai.GenerationConfig(
+                    response_mime_type="application/json",
+                    max_output_tokens=max_tokens,
+                ),
+            )
             result = json.loads(response.text)
             self._log_usage(response)
             return result

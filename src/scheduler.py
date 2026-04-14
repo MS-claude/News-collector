@@ -1,7 +1,7 @@
 """
 APScheduler 기반 스케줄러
 - 매일 09:00 KST: 일간 뉴스 수집 → AI 요약 → 이메일 발송
-- 매주 월요일 09:00 KST: 주간 리포트 생성 → 이메일 발송
+- 매주 금요일 09:00 KST: 주간 리포트 생성 → 이메일 발송
 - 매일 03:00 KST: 30일 이상 된 기사 DB 정리
 """
 import logging
@@ -127,10 +127,10 @@ def run_scheduler() -> None:
         misfire_grace_time=3600,  # 1시간 이내 실행 누락 허용
     )
 
-    # 매주 월요일 09:00 KST 주간 리포트
+    # 매주 금요일 09:00 KST 주간 리포트
     scheduler.add_job(
         weekly_job,
-        CronTrigger(day_of_week="mon", hour=9, minute=0, timezone=KST_TIMEZONE),
+        CronTrigger(day_of_week="fri", hour=9, minute=0, timezone=KST_TIMEZONE),
         id="weekly_report",
         name="주간 리포트",
         misfire_grace_time=3600,
@@ -146,7 +146,7 @@ def run_scheduler() -> None:
 
     logger.info(
         "스케줄러 시작 (KST 기준) — "
-        "일간: 매일 09:00 | 주간: 매주 월 09:00 | 정리: 매일 03:00"
+        "일간: 매일 09:00 | 주간: 매주 금 09:00 | 정리: 매일 03:00"
     )
 
     try:

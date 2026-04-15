@@ -1,9 +1,6 @@
 name: 뉴스봇
 
 on:
-  schedule:
-    - cron: '0 0 * * *'  # 매일 KST 09:00 → 일간 수집
-    - cron: '0 0 * * 5'  # 매주 금요일 KST 09:00 → 주간 리포트
   workflow_dispatch:
     inputs:
       job_type:
@@ -19,7 +16,7 @@ jobs:
   daily:
     name: 일간 뉴스 수집
     runs-on: ubuntu-latest
-    if: github.event.schedule == '0 0 * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.job_type == 'daily')
+    if: github.event.inputs.job_type == 'daily'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -42,7 +39,7 @@ jobs:
   weekly:
     name: 주간 리포트
     runs-on: ubuntu-latest
-    if: github.event.schedule == '0 0 * * 5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.job_type == 'weekly')
+    if: github.event.inputs.job_type == 'weekly'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
